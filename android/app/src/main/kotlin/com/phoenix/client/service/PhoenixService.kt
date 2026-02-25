@@ -117,6 +117,7 @@ class PhoenixService : Service() {
         }
 
         // Log the exact TOML so developers can verify the config in the UI panel
+        ServiceEvents.emitLog(configResult.resolveLog)
         ServiceEvents.emitLog("=== client.toml ===")
         configResult.tomlContent.lines().forEach { ServiceEvents.emitLog(it) }
         ServiceEvents.emitLog("==================")

@@ -126,7 +126,10 @@ class PhoenixVpnService : VpnService() {
         }
 
         val configResult = try {
-            ConfigWriter.write(this, config)
+            // VPN mode routes ALL device traffic (including DNS over UDP) through the
+            // SOCKS5 proxy. UDP ASSOCIATE must be enabled or DNS queries will be rejected
+            // and apps will fail to resolve any hostnames.
+            ConfigWriter.write(this, config.copy(enableUdp = true))
         } catch (e: Exception) {
             ServiceEvents.emitLog("ERROR: config write failed — ${e.message}")
             ServiceEvents.emitStatus(ServiceEvents.StatusEvent.Error("Config write failed: ${e.message}"))
@@ -134,6 +137,7 @@ class PhoenixVpnService : VpnService() {
             return
         }
 
+        ServiceEvents.emitLog(configResult.resolveLog)
         ServiceEvents.emitLog("=== client.toml ===")
         configResult.tomlContent.lines().forEach { ServiceEvents.emitLog(it) }
         ServiceEvents.emitLog("==================")
