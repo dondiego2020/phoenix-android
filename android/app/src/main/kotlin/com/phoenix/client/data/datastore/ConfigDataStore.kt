@@ -56,18 +56,24 @@ class ConfigDataStore @Inject constructor(
     /** All stored config profiles. */
     val configsFlow: Flow<List<ClientConfig>> = context.dataStore.data.map { prefs ->
         val json = prefs[Keys.CONFIGS_JSON]
-        if (json != null) parseConfigs(json) else listOf(legacyConfig(prefs))
+        when {
+            json != null -> parseConfigs(json)
+            prefs[Keys.REMOTE_ADDR] != null -> listOf(legacyConfig(prefs)) // migrate old install
+            else -> emptyList() // fresh install — start empty
+        }
     }
 
     /** The currently selected config (first in list if no selection stored). */
     val configFlow: Flow<ClientConfig> = context.dataStore.data.map { prefs ->
         val json       = prefs[Keys.CONFIGS_JSON]
         val selectedId = prefs[Keys.SELECTED_ID] ?: ""
-        if (json != null) {
-            val list = parseConfigs(json)
-            list.firstOrNull { it.id == selectedId } ?: list.firstOrNull() ?: ClientConfig()
-        } else {
-            legacyConfig(prefs)
+        when {
+            json != null -> {
+                val list = parseConfigs(json)
+                list.firstOrNull { it.id == selectedId } ?: list.firstOrNull() ?: ClientConfig()
+            }
+            prefs[Keys.REMOTE_ADDR] != null -> legacyConfig(prefs)
+            else -> ClientConfig() // fresh install, nothing selected
         }
     }
 
@@ -83,16 +89,16 @@ class ConfigDataStore @Inject constructor(
         }
     }
 
-    /** Remove the config with [id]. Always keeps at least one config. */
+    /** Remove the config with [id]. Allows deleting all configs. */
     suspend fun deleteConfig(id: String) {
         context.dataStore.edit { prefs ->
             val list = currentList(prefs).toMutableList()
-            if (list.size <= 1) return@edit
             list.removeAll { it.id == id }
             prefs[Keys.CONFIGS_JSON] = serializeConfigs(list)
-            // If the deleted config was selected, fall back to the first remaining one
             if ((prefs[Keys.SELECTED_ID] ?: "") == id) {
-                prefs[Keys.SELECTED_ID] = list.first().id
+                val next = list.firstOrNull()
+                if (next != null) prefs[Keys.SELECTED_ID] = next.id
+                else prefs.remove(Keys.SELECTED_ID)
             }
         }
     }
@@ -106,10 +112,14 @@ class ConfigDataStore @Inject constructor(
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
-    /** Read the current list, falling back to the legacy single-config if not yet migrated. */
+    /** Read the current list, migrating legacy data if present, empty on fresh install. */
     private fun currentList(prefs: Preferences): List<ClientConfig> {
         val json = prefs[Keys.CONFIGS_JSON]
-        return if (json != null) parseConfigs(json) else listOf(legacyConfig(prefs))
+        return when {
+            json != null -> parseConfigs(json)
+            prefs[Keys.REMOTE_ADDR] != null -> listOf(legacyConfig(prefs))
+            else -> emptyList()
+        }
     }
 
     /** Build a ClientConfig from the old single-config DataStore keys (one-time migration). */
