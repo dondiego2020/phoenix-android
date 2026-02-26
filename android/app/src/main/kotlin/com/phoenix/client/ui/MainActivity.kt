@@ -100,6 +100,9 @@ class MainActivity : ComponentActivity() {
                             HomeScreen(
                                 onNavigateToConfig = {
                                     navController.navigate("config") {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
                                         launchSingleTop = true
                                         restoreState = true
                                     }

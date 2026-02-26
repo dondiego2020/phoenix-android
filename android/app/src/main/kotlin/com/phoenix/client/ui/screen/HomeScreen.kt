@@ -484,7 +484,7 @@ private fun ContextualHint(
                     color = PhoenixOnSurfaceSecondary,
                 )
                 Text(
-                    text = "Set up →",
+                    text = "Setup →",
                     style = MaterialTheme.typography.bodySmall,
                     color = PhoenixOrange,
                 )
