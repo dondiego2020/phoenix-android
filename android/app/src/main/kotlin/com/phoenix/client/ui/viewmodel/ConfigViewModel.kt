@@ -37,9 +37,45 @@ class ConfigViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ConfigUiState())
     val uiState: StateFlow<ConfigUiState> = _uiState.asStateFlow()
 
+    /** The currently selected config profile (drives the edit form). */
     val config: StateFlow<ClientConfig> = configRepository
         .observeConfig()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ClientConfig())
+
+    /** All stored config profiles (drives the config picker chips). */
+    val configs: StateFlow<List<ClientConfig>> = configRepository
+        .observeConfigs()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // ── Config list operations ─────────────────────────────────────────────────
+
+    fun selectConfig(id: String) {
+        viewModelScope.launch { configRepository.selectConfig(id) }
+    }
+
+    /** Creates a new config, saves and selects it, and returns its ID immediately. */
+    fun createNewConfig(): String {
+        val count = configs.value.size
+        val newConfig = ClientConfig(name = "Config ${count + 1}")
+        viewModelScope.launch {
+            configRepository.saveConfig(newConfig)
+            configRepository.selectConfig(newConfig.id)
+        }
+        return newConfig.id
+    }
+
+    fun deleteConfig(id: String) {
+        viewModelScope.launch {
+            // Delete the per-config key file if it exists
+            val cfg = configs.value.firstOrNull { it.id == id }
+            if (cfg != null && cfg.privateKeyFile == KeyManager.keyFileNameFor(id)) {
+                File(getApplication<Application>().filesDir, cfg.privateKeyFile).delete()
+            }
+            configRepository.deleteConfig(id)
+        }
+    }
+
+    // ── Form save ──────────────────────────────────────────────────────────────
 
     fun save(config: ClientConfig) {
         viewModelScope.launch {
@@ -52,11 +88,14 @@ class ConfigViewModel @Inject constructor(
         _uiState.update { it.copy(saved = false) }
     }
 
+    // ── Key management ─────────────────────────────────────────────────────────
+
     /**
      * Runs the Go binary with `-gen-keys`, writes `client.private.key` to filesDir,
      * and exposes the public key via [ConfigUiState.generatedPublicKey].
      *
-     * On success, both the private key filename and public key are auto-saved to DataStore.
+     * On success, both the private key filename and public key are auto-saved to DataStore
+     * for the currently selected config.
      */
     fun generateKeys() {
         if (_uiState.value.isGeneratingKeys) return
@@ -64,7 +103,7 @@ class ConfigViewModel @Inject constructor(
 
         viewModelScope.launch {
             runCatching {
-                KeyManager.generateKeys(getApplication())
+                KeyManager.generateKeys(getApplication(), config.value.id)
             }.onSuccess { pair ->
                 val currentConfig = config.value
                 configRepository.saveConfig(
@@ -91,23 +130,23 @@ class ConfigViewModel @Inject constructor(
     }
 
     /**
-     * Copies the file at [uri] (content:// URI from the file picker) into the app's
-     * private filesDir as `client.private.key` and auto-saves the filename to DataStore.
-     * clientPublicKey is cleared because it cannot be derived from an imported file.
+     * Copies the file at [uri] into the app's private filesDir as `client.private.key`
+     * and auto-saves the filename to the currently selected config in DataStore.
      */
     fun onKeyFilePicked(uri: Uri) {
         viewModelScope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
                     val ctx = getApplication<Application>()
-                    val destFile = File(ctx.filesDir, "client.private.key")
+                    val currentConfig = config.value
+                    val keyFileName = KeyManager.keyFileNameFor(currentConfig.id)
+                    val destFile = File(ctx.filesDir, keyFileName)
                     ctx.contentResolver.openInputStream(uri)?.use { input ->
                         destFile.outputStream().use { input.copyTo(it) }
                     } ?: throw IllegalStateException("Cannot open selected file")
-                    val currentConfig = config.value
                     configRepository.saveConfig(
                         currentConfig.copy(
-                            privateKeyFile = "client.private.key",
+                            privateKeyFile = keyFileName,
                             clientPublicKey = "",
                         ),
                     )

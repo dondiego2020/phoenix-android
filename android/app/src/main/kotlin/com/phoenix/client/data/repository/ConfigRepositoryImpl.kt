@@ -12,5 +12,11 @@ class ConfigRepositoryImpl @Inject constructor(
 
     override fun observeConfig(): Flow<ClientConfig> = dataStore.configFlow
 
+    override fun observeConfigs(): Flow<List<ClientConfig>> = dataStore.configsFlow
+
     override suspend fun saveConfig(config: ClientConfig) = dataStore.save(config)
+
+    override suspend fun deleteConfig(id: String) = dataStore.deleteConfig(id)
+
+    override suspend fun selectConfig(id: String) = dataStore.selectConfig(id)
 }

@@ -1,8 +1,12 @@
 package com.phoenix.client.domain.model
 
+import java.util.UUID
+
 /**
- * Domain model representing the Phoenix client configuration.
+ * Domain model representing a single Phoenix client configuration profile.
  *
+ * @param id              Stable UUID that identifies this config in the stored list.
+ * @param name            Human-readable label shown in the config picker.
  * @param remoteAddr      Server address in host:port format.
  * @param serverPubKey    Server Ed25519 public key (Base64). Empty string = h2c mode.
  * @param privateKeyFile  File name (inside filesDir) of the client Ed25519 private key.
@@ -15,6 +19,8 @@ package com.phoenix.client.domain.model
  * @param enableUdp       Whether to allow SOCKS5 UDP ASSOCIATE.
  */
 data class ClientConfig(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String = "Default",
     val remoteAddr: String = "",
     val serverPubKey: String = "",
     val privateKeyFile: String = "",
