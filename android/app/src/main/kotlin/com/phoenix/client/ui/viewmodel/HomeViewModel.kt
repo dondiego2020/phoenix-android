@@ -6,6 +6,7 @@ import android.net.VpnService
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.phoenix.client.BuildConfig
+import com.phoenix.client.data.datastore.SplitTunnelDataStore
 import com.phoenix.client.domain.model.ClientConfig
 import com.phoenix.client.domain.repository.ConfigRepository
 import com.phoenix.client.service.PhoenixService
@@ -54,6 +55,7 @@ data class HomeUiState(
 class HomeViewModel @Inject constructor(
     application: Application,
     configRepository: ConfigRepository,
+    private val splitTunnelDataStore: SplitTunnelDataStore,
 ) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -72,6 +74,12 @@ class HomeViewModel @Inject constructor(
     val isConfigured: StateFlow<Boolean> = config
         .map { it.remoteAddr.isNotBlank() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    private val splitTunnelEnabled: StateFlow<Boolean> = splitTunnelDataStore.enabledFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    private val excludedApps: StateFlow<Set<String>> = splitTunnelDataStore.excludedAppsFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     private var uptimeJob: Job? = null
     private var timeoutJob: Job? = null
@@ -230,7 +238,14 @@ class HomeViewModel @Inject constructor(
 
         val ctx = getApplication<Application>()
         if (config.value.useVpnMode) {
-            ctx.startForegroundService(PhoenixVpnService.startIntent(ctx, config.value))
+            ctx.startForegroundService(
+                PhoenixVpnService.startIntent(
+                    ctx,
+                    config.value,
+                    splitTunnelEnabled = splitTunnelEnabled.value,
+                    excludedApps       = excludedApps.value,
+                ),
+            )
         } else {
             ctx.startForegroundService(PhoenixService.startIntent(ctx, config.value))
         }

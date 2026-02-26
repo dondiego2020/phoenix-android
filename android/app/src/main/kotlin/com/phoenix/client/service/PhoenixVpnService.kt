@@ -42,8 +42,15 @@ class PhoenixVpnService : VpnService() {
         const val EXTRA_AUTH_TOKEN = "auth_token"
         const val EXTRA_TLS_MODE = "tls_mode"
         const val EXTRA_FINGERPRINT = "fingerprint"
+        const val EXTRA_SPLIT_TUNNEL_ENABLED = "split_tunnel_enabled"
+        const val EXTRA_EXCLUDED_APPS = "excluded_apps"
 
-        fun startIntent(context: Context, config: ClientConfig): Intent =
+        fun startIntent(
+            context: Context,
+            config: ClientConfig,
+            splitTunnelEnabled: Boolean = false,
+            excludedApps: Set<String> = emptySet(),
+        ): Intent =
             Intent(context, PhoenixVpnService::class.java).apply {
                 action = ACTION_START
                 putExtra(EXTRA_REMOTE_ADDR, config.remoteAddr)
@@ -54,6 +61,8 @@ class PhoenixVpnService : VpnService() {
                 putExtra(EXTRA_AUTH_TOKEN, config.authToken)
                 putExtra(EXTRA_TLS_MODE, config.tlsMode)
                 putExtra(EXTRA_FINGERPRINT, config.fingerprint)
+                putExtra(EXTRA_SPLIT_TUNNEL_ENABLED, splitTunnelEnabled)
+                putStringArrayListExtra(EXTRA_EXCLUDED_APPS, ArrayList(excludedApps))
             }
 
         fun stopIntent(context: Context): Intent =
@@ -64,6 +73,10 @@ class PhoenixVpnService : VpnService() {
     private var process: Process? = null
     private var tunInterface: ParcelFileDescriptor? = null
     private val intentionallyStopped = AtomicBoolean(false)
+
+    // Split-tunnel state set once per start command
+    private var splitTunnelEnabled = false
+    private var excludedApps: List<String> = emptyList()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -77,6 +90,8 @@ class PhoenixVpnService : VpnService() {
             ACTION_START -> {
                 intentionallyStopped.set(false)
                 val config = intent.toClientConfig()
+                splitTunnelEnabled = intent.getBooleanExtra(EXTRA_SPLIT_TUNNEL_ENABLED, false)
+                excludedApps = intent.getStringArrayListExtra(EXTRA_EXCLUDED_APPS) ?: emptyList()
                 // startForeground() is required by Android to avoid a crash,
                 // but we immediately remove it — the active VPN session keeps
                 // the service alive without a visible notification.
@@ -158,7 +173,15 @@ class PhoenixVpnService : VpnService() {
                 .addDnsServer("1.1.1.1")
                 .addDnsServer("8.8.8.8")
                 .setMtu(1500)
-                .addDisallowedApplication(packageName) // exclude Phoenix itself → no routing loop
+                .addDisallowedApplication(packageName) // always exclude Phoenix itself → no routing loop
+                .also { builder ->
+                    // Split tunnel: exclude additional apps chosen by the user
+                    if (splitTunnelEnabled) {
+                        for (pkg in excludedApps) {
+                            runCatching { builder.addDisallowedApplication(pkg) }
+                        }
+                    }
+                }
                 .establish()
         } catch (e: Exception) {
             ServiceEvents.emitLog("ERROR: TUN setup failed — ${e.message}")

@@ -32,6 +32,7 @@ import com.phoenix.client.R
 import com.phoenix.client.ui.screen.ConfigScreen
 import com.phoenix.client.ui.screen.HomeScreen
 import com.phoenix.client.ui.screen.SettingsScreen
+import com.phoenix.client.ui.screen.SplitTunnelScreen
 import com.phoenix.client.ui.theme.PhoenixTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -71,6 +72,8 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     bottomBar = {
+                        // Hide the bottom nav on sub-screens that have their own back button
+                        if (currentDestination?.route == "split_tunnel") return@Scaffold
                         NavigationBar {
                             navItems.forEach { item ->
                                 NavigationBarItem(
@@ -110,7 +113,18 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         composable("config") { ConfigScreen() }
-                        composable("settings") { SettingsScreen() }
+                        composable("settings") {
+                            SettingsScreen(
+                                onNavigateToSplitTunnel = {
+                                    navController.navigate("split_tunnel")
+                                },
+                            )
+                        }
+                        composable("split_tunnel") {
+                            SplitTunnelScreen(
+                                onBack = { navController.popBackStack() },
+                            )
+                        }
                     }
                 }
             }

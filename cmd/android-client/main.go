@@ -77,10 +77,18 @@ func main() {
 	if *tunSocket != "" {
 		// ── VPN mode ─────────────────────────────────────────────────────────
 		// Find the SOCKS5 inbound address — tun2socks routes into it.
-		socksAddr := "0.0.0.0:1080"
+		// Use 127.0.0.1 as the connect target regardless of the bind address:
+		// 0.0.0.0/:: are valid bind addresses but not valid TCP connect targets.
+		socksAddr := "127.0.0.1:1080"
 		for _, in := range cfg.Inbounds {
 			if in.Protocol == protocol.ProtocolSOCKS5 {
-				socksAddr = in.LocalAddr
+				host, port, err := net.SplitHostPort(in.LocalAddr)
+				if err == nil {
+					if host == "0.0.0.0" || host == "::" || host == "" {
+						host = "127.0.0.1"
+					}
+					socksAddr = net.JoinHostPort(host, port)
+				}
 				break
 			}
 		}

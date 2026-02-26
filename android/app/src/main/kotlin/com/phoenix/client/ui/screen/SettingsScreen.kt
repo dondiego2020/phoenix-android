@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.outlined.OpenInBrowser
 import androidx.compose.material.icons.outlined.Router
 import androidx.compose.material.icons.automirrored.outlined.Send
@@ -38,7 +39,10 @@ import com.phoenix.client.ui.viewmodel.SettingsViewModel
 import com.phoenix.client.util.UpdateChecker
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(
+    onNavigateToSplitTunnel: () -> Unit = {},
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
     val config by viewModel.config.collectAsState()
 
     Column(
@@ -99,7 +103,37 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             },
         )
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(16.dp))
+
+        // ── Split Tunnel ─────────────────────────────────────────────────────
+        LinkRow(
+            icon = {
+                Icon(
+                    imageVector = Icons.Outlined.VpnLock,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = if (config.useVpnMode) PhoenixOrange
+                           else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                )
+            },
+            title = "Split Tunnel",
+            subtitle = if (config.useVpnMode)
+                "Choose which apps are routed through the VPN tunnel"
+            else
+                "Only available in VPN mode",
+            onClick = { if (config.useVpnMode) onNavigateToSplitTunnel() },
+            trailing = {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = if (config.useVpnMode) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                           else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                )
+            },
+        )
+
+        Spacer(Modifier.height(24.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
         Spacer(Modifier.height(24.dp))
 
@@ -115,8 +149,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         LinkRow(
             icon = { Icon(Icons.Outlined.OpenInBrowser, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)) },
             title = "GitHub",
-            subtitle = "Releases, source code and issue tracker",
-            onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(UpdateChecker.RELEASES_URL))) },
+            subtitle = "View source code and project on GitHub",
+            onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(UpdateChecker.GITHUB_URL))) },
         )
 
         Spacer(Modifier.height(4.dp))
@@ -144,6 +178,7 @@ private fun LinkRow(
     title: String,
     subtitle: String,
     onClick: () -> Unit,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     Surface(
         onClick = onClick,
@@ -164,6 +199,10 @@ private fun LinkRow(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                 )
+            }
+            if (trailing != null) {
+                Spacer(Modifier.width(8.dp))
+                trailing()
             }
         }
     }

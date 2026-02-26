@@ -9,6 +9,20 @@
     <uses-permission android:name="android.permission.BIND_VPN_SERVICE" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!--
+        Required on Android 11+ (API 30+) for the split-tunnel app picker.
+        Without this the PackageManager only returns system packages; third-party
+        apps (Telegram, WhatsApp, Instagram, …) are hidden by the OS.
+        Using <queries> with a LAUNCHER intent is the Play-Store-safe alternative
+        to the broad QUERY_ALL_PACKAGES permission.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:name=".PhoenixApp"
         android:allowBackup="true"
