@@ -9,11 +9,11 @@ data class UpdateInfo(val version: String, val downloadUrl: String)
 
 object UpdateChecker {
 
-    const val RELEASES_URL = "https://github.com/dondiego2020/phoenix-android/releases/latest"
+    const val RELEASES_URL = "https://github.com/Fox-Fig/phoenix-android/releases/latest"
     const val GITHUB_URL   = "https://github.com/Fox-Fig/phoenix"
     const val TELEGRAM_URL  = "https://t.me/FoxFig"
 
-    private const val REPO = "dondiego2020/phoenix-android"
+    private const val REPO = "Fox-Fig/phoenix-android"
 
     private fun apkUrl(version: String) =
         "https://github.com/$REPO/releases/download/$version/phoenix-android-$version.apk"
